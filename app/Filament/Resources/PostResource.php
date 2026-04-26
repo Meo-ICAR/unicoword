@@ -5,6 +5,7 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\PostResource\Pages;
 use App\Filament\Resources\PostResource\RelationManagers;
 use App\Models\Post;
+use App\Services\DocumentExportService;
 use App\Services\DocumentTemplateService;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -82,6 +83,37 @@ class PostResource extends Resource
                             'document_template_id' => 1,
                             'body' => $body,
                         ]);
+                    }),
+                Action::make('export-pdf')
+                    ->label('Esporta PDF')
+                    ->icon('fas-file-pdf')
+                    ->color('danger')
+                    ->action(function ($record) {
+                        try {
+                            $result = DocumentExportService::generateAndExportPdf(
+                                Post::class,
+                                $record->id,
+                                1
+                            );
+
+                            \Filament\Notifications\Notification::make()
+                                ->title('PDF Generato con Successo')
+                                ->body("Documento creato e salvato in: {$result['pdf_path']}")
+                                ->success()
+                                ->actions([
+                                    \Filament\Notifications\Actions\Action::make('download')
+                                        ->label('Scarica PDF')
+                                        ->url($result['pdf_url'])
+                                        ->openUrlInNewTab()
+                                ])
+                                ->send();
+                        } catch (\Exception $e) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('Errore nella Generazione PDF')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+                        }
                     }),
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),

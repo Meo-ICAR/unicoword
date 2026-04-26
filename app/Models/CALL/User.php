@@ -1,0 +1,133 @@
+<?php
+
+namespace App\Models\CALL;
+
+// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Models\CALL\Company;
+use Database\Factories\UserFactory;
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Models\Contracts\HasTenants;
+use Filament\Panel;
+use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use App\Models\CALL\BaseModel;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Collection;
+
+#[Fillable(['name', 'email', 'password', 'is_approved', 'is_rejected', 'is_super_admin', 'current_company_id', 'company_name', 'created_by', 'updated_by', 'deleted_by'])]
+#[Hidden(['password', 'remember_token'])]
+class User extends Authenticatable implements FilamentUser, HasTenants
+{
+    /** @use HasFactory<UserFactory> */
+    use HasFactory, Notifiable;
+
+    /**
+     * Get the attributes that should be cast.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'email_verified_at' => 'datetime',
+            'password' => 'hashed',
+            'is_approved' => 'boolean',
+            'is_rejected' => 'boolean',
+            'is_super_admin' => 'boolean',
+            'current_company_id' => 'string',
+            'created_by' => 'integer',
+            'updated_by' => 'integer',
+            'deleted_by' => 'integer',
+        ];
+    }
+
+    public function companies(): BelongsToMany
+    {
+        return $this
+            ->belongsToMany(App\Models\CALL\Company::class)
+            ->using(App\Models\CALL\CompanyUser::class)
+            ->withPivot('role')
+            ->withTimestamps();
+    }
+
+    // Ritorna le aziende visibili nel menu a tendina dell'utente
+
+    public function getTenants(Panel $panel): Collection
+    {
+        // Se è Super Admin, carica e mostra TUTTE le aziende nel sistema
+        if ($this->is_super_admin) {
+            return Company::all();
+        }
+
+        // Altrimenti, mostra solo le aziende a cui l'utente è collegato
+        return $this->companies;
+    }
+
+    // Verifica se l'utente ha il permesso di entrare in un'azienda specifica
+    public function canAccessTenant(Model $tenant): bool
+    {
+        // Il Super Admin può accedere sempre e ovunque
+        if ($this->is_super_admin) {
+            return true;
+        }
+
+        // Gli utenti normali possono accedere solo se esiste il record nella pivot
+        return $this->companies()->whereKey($tenant)->exists();
+    }
+
+    // --- HELPER PER I RUOLI ---
+
+    // Ottiene il ruolo dell'utente nell'azienda attualmente attiva in Filament
+    public function getCurrentTenantRole(): ?string
+    {
+        $tenant = Filament::getTenant();
+
+        if (!$tenant) {
+            return null;
+        }
+
+        // Cerca l'utente nella pivot per questo tenant e restituisce il ruolo
+        return $this->companies()->whereKey($tenant->id)->first()?->pivot->role;
+    }
+
+    public function isTenantAdmin(): bool
+    {
+        return ($this->is_super_admin) || ($this->getCurrentTenantRole() === 'admin');
+    }
+
+    public function isTenantInspector(): bool
+    {
+        return ($this->is_super_admin) || ($this->getCurrentTenantRole() === 'inspector');
+    }
+
+    public function getFilamentAvatarUrl(): ?string
+    {
+        if ($this->avatar_url) {
+            return $this->avatar_url;
+        }
+
+        $socialUser = $this->socialiteUsers()->whereNotNull('avatar')->first();
+        if ($socialUser) {
+            return $socialUser->avatar;
+        }
+
+        return null;
+    }
+
+    public function socialiteUsers(): HasMany
+    {
+        return $this->hasMany(App\Models\CALL\SocialiteUser::class);
+    }
+
+    /**
+     * Determine if the user can access the Filament panel.
+     */
+    public function canAccessPanel(Panel $panel): bool
+    {
+        return true;  // All authenticated users can access the panel
+    }
+}

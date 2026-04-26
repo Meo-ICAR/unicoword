@@ -13,7 +13,7 @@ class DocumentTemplateService
     public static function getTemplateVars(int $templateId): array
     {
         $vars = DocumentTemplateVar::forTemplate($templateId)->get();
-        
+
         return $vars->map(function ($var) {
             return DocsVar::make($var->var)
                 ->label($var->var)
@@ -28,20 +28,37 @@ class DocumentTemplateService
     public static function getTemplateVarsWithRecord(int $templateId, $record): array
     {
         $vars = DocumentTemplateVar::forTemplate($templateId)->get();
-        
+
         return $vars->map(function ($var) use ($record) {
             $docsVar = DocsVar::make($var->var)
                 ->label($var->var)
                 ->model($var->model);
-            
+
             // If the variable has a model and column, get the value from the record
             if ($var->model && $var->value && class_exists($var->model)) {
                 $column = is_string($var->value) ? $var->value : json_decode($var->value, true)['column'] ?? null;
                 if ($column && method_exists($record, 'getAttribute')) {
-                    $docsVar->value($record->getAttribute($column));
+                    // Handle nested relationships like company.name
+                    if (str_contains($column, '.')) {
+                        $parts = explode('.', $column);
+                        $value = $record;
+                        foreach ($parts as $part) {
+                            if ($value && method_exists($value, $part)) {
+                                $value = $value->$part;
+                            } elseif ($value && isset($value->$part)) {
+                                $value = $value->$part;
+                            } else {
+                                $value = null;
+                                break;
+                            }
+                        }
+                        $docsVar->value($value);
+                    } else {
+                        $docsVar->value($record->getAttribute($column));
+                    }
                 }
             }
-            
+
             return $docsVar;
         })->toArray();
     }
@@ -70,7 +87,7 @@ class DocumentTemplateService
     {
         // Delete existing vars for this template
         DocumentTemplateVar::forTemplate($templateId)->delete();
-        
+
         // Create new vars
         foreach ($vars as $varData) {
             DocumentTemplateVar::create([
