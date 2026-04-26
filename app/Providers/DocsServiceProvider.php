@@ -27,14 +27,14 @@ class DocsServiceProvider extends ServiceProvider
     public function boot(): void
     {
         FilamentDocs::register([
-            DocsVar::make('$POST_TITLE')
-                ->label('Post Title')
-                ->model(Post::class)
-                ->column('title'),
             DocsVar::make('$CLIENT_NAME')
                 ->label('Client Name')
                 ->model(Client::class)
                 ->column('name'),
+            DocsVar::make('$CLIENT_OWNER')
+                ->label('Client Owner')
+                ->model(Client::class)
+                ->column('owner'),
             DocsVar::make('$CLIENT_COMPANY_NAME')
                 ->label('Company Name')
                 ->model(Client::class)
@@ -42,7 +42,7 @@ class DocsServiceProvider extends ServiceProvider
             DocsVar::make('$CLIENT_ADDRESS')
                 ->label('Client Address')
                 ->model(Client::class)
-                ->column('address.name'),
+                ->column('legalAddressFormatted'),
             DocsVar::make('$CLIENT_VAT_NUMBER')
                 ->label('Client VAT Number')
                 ->model(Client::class)
@@ -58,7 +58,11 @@ class DocsServiceProvider extends ServiceProvider
             DocsVar::make('$CLIENT_COMPANY_ADDRESS')
                 ->label('Company Address')
                 ->model(Client::class)
-                ->column('company.address.name'),
+                ->column('company.legalAddressFormatted'),
+            DocsVar::make('$CLIENT_COMPANY_OWNER')
+                ->label('Company Owner')
+                ->model(Client::class)
+                ->column('company.owner'),
             DocsVar::make('$EMPLOYEE_NAME')
                 ->label('Employee Name')
                 ->model(Employee::class)
@@ -66,7 +70,7 @@ class DocsServiceProvider extends ServiceProvider
             DocsVar::make('$EMPLOYEE_COMPANY_TITOLARE')
                 ->label('Employee Company Titolare')
                 ->model(Employee::class)
-                ->column('company.titolare'),
+                ->column('company.owner'),
             DocsVar::make('$SELECTED_TIME')
                 ->label('SELECTED TIME')
                 ->value(fn() => Carbon::now()->subDays(10)->translatedFormat('D-M-Y')),

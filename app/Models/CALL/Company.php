@@ -2,11 +2,11 @@
 
 namespace App\Models\CALL;
 
+use App\Models\CALL\BaseModel;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
-use App\Models\CALL\BaseModel;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Hash;
@@ -19,6 +19,7 @@ class Company extends BaseModel
     protected $fillable = [
         'name',
         'vat_number',
+        'owner',
         'sponsor',
         'company_type',
         'is_iso27001_certified',
@@ -114,7 +115,7 @@ class Company extends BaseModel
      */
     public function companyAdminUser()
     {
-        return $this->belongsTo(App\Models\CALL\User::class, 'user_id');
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     /**
@@ -156,45 +157,66 @@ class Company extends BaseModel
     public function users()
     {
         return $this
-            ->belongsToMany(App\Models\CALL\User::class)
-            ->using(App\Models\CALL\CompanyApp\Models\CALL\User::class)
+            ->belongsToMany(User::class)
+            ->using(CompanyUser::class)
             ->withPivot('role')
             ->withTimestamps();
     }
 
     public function clients()
     {
-        return $this->hasMany(App\Models\CALL\Client::class);
+        return $this->hasMany(Client::class);
     }
 
     public function branches()
     {
-        return $this->hasMany(App\Models\CALL\Branch::class);
+        return $this->hasMany(Branch::class);
     }
 
     public function employees()
     {
-        return $this->hasMany(App\Models\CALL\Employee::class);
+        return $this->hasMany(Employee::class);
     }
 
     public function websites()
     {
-        return $this->hasMany(App\Models\CALL\Website::class);
+        return $this->hasMany(Website::class);
     }
 
     public function registrations(): HasMany
     {
-        return $this->hasMany(App\Models\CALL\Registration::class);
+        return $this->hasMany(Registration::class);
     }
 
     public function addresses(): MorphMany
     {
-        return $this->morphMany(App\Models\CALL\Address::class, 'addressable');
+        return $this->morphMany(Address::class, 'addressable');
+    }
+
+    public function legalAddress(): MorphMany
+    {
+        return $this->morphMany(Address::class, 'addressable')->where('address_type_id', 10);
+    }
+
+    public function getPrimaryLegalAddressAttribute(): ?Address
+    {
+        return $this->legalAddress()->first();
+    }
+
+    public function getLegalAddressFormattedAttribute(): ?string
+    {
+        $legalAddress = $this->primaryLegalAddress;
+        return $legalAddress?->full_address;
     }
 
     public function registroTrattamentiItems(): HasMany
     {
-        return $this->hasMany(App\Models\CALL\RegistroTrattamentiItem::class);
+        return $this->hasMany(RegistroTrattamentiItem::class);
+    }
+
+    public function softwareApplications(): HasMany
+    {
+        return $this->hasMany(SoftwareApplication::class);
     }
 
     public function getMainAddressAttribute(): ?Address
